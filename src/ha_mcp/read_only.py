@@ -33,9 +33,13 @@ import logging
 from collections.abc import Awaitable, Callable, Sequence
 from typing import TYPE_CHECKING, Any, NamedTuple, NoReturn
 
-from fastmcp.server.middleware.middleware import CallNext, Middleware, MiddlewareContext
-from fastmcp.server.transforms import Transform
-from fastmcp.tools import Tool
+from ha_mcp._vendor.fastmcp.server.middleware.middleware import (
+    CallNext,
+    Middleware,
+    MiddlewareContext,
+)
+from ha_mcp._vendor.fastmcp.server.transforms import Transform
+from ha_mcp._vendor.fastmcp.tools import Tool
 
 from .config import get_global_settings
 from .errors import ErrorCode, create_error_response
@@ -44,8 +48,8 @@ from .tool_dispatch import CALL_PROXY_META_TOOLS
 from .tools.helpers import raise_tool_error
 
 if TYPE_CHECKING:
-    from fastmcp.server.transforms import GetToolNext
-    from fastmcp.utilities.versions import VersionSpec
+    from ha_mcp._vendor.fastmcp.server.transforms import GetToolNext
+    from ha_mcp._vendor.fastmcp.utilities.versions import VersionSpec
 
 logger = logging.getLogger(__name__)
 
@@ -288,7 +292,7 @@ READ_ONLY_EXEMPT_TOOLS: dict[str, ReadOnlyExemption] = {
 def is_read_safe(tool: Tool) -> bool:
     """Return True when the tool's annotations declare it read-only."""
     annotations = getattr(tool, "annotations", None)
-    return bool(annotations and getattr(annotations, "readOnlyHint", None) is True)
+    return bool(annotations and annotations.read_only_hint is True)
 
 
 def read_only_visible(tool: Tool) -> bool:
