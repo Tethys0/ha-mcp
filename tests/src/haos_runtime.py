@@ -1365,6 +1365,35 @@ def stage_embedded_server_feature_flags_in_qcow2(
         _shutil.rmtree(workdir, ignore_errors=True)
 
 
+def _connect_home_assistant_ws(
+    ws_url: str, ssl_context: ssl.SSLContext | None, timeout: float
+) -> Any:
+    """Open the Core WebSocket, retrying within ``timeout``.
+
+    Right after a Core restart the HTTP endpoints answer before the WebSocket
+    handshake does.
+    """
+    import websockets.exceptions
+    import websockets.sync.client
+
+    deadline = time.monotonic() + timeout
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError(f"Timed out opening {ws_url} within {timeout}s")
+        try:
+            return websockets.sync.client.connect(
+                ws_url,
+                max_size=None,
+                open_timeout=min(remaining, 30.0),
+                ssl=ssl_context,
+            )
+        except (OSError, TimeoutError, websockets.exceptions.WebSocketException):
+            if time.monotonic() + 2.0 >= deadline:
+                raise
+            time.sleep(2.0)
+
+
 def _home_assistant_ws_command(
     base_url: str,
     token: str,
@@ -1374,8 +1403,6 @@ def _home_assistant_ws_command(
     verify_ssl: bool = True,
 ) -> Any:
     """Run one authenticated Home Assistant WebSocket command."""
-    import websockets.sync.client
-
     ws_url = (
         base_url.replace("http://", "ws://").replace("https://", "wss://")
         + "/api/websocket"
@@ -1387,12 +1414,7 @@ def _home_assistant_ws_command(
             ssl_context.check_hostname = False
             ssl_context.verify_mode = ssl.CERT_NONE
 
-    with websockets.sync.client.connect(
-        ws_url,
-        max_size=None,
-        open_timeout=min(timeout, 30.0),
-        ssl=ssl_context,
-    ) as ws:
+    with _connect_home_assistant_ws(ws_url, ssl_context, timeout) as ws:
         first = json.loads(ws.recv())
         if first.get("type") != "auth_required":
             raise RuntimeError(f"WS handshake: expected auth_required, got {first!r}")
@@ -1403,10 +1425,10 @@ def _home_assistant_ws_command(
 
         msg_id = 1
         ws.send(json.dumps({"id": msg_id, **command}))
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
+        reply_deadline = time.monotonic() + timeout
+        while time.monotonic() < reply_deadline:
             try:
-                raw = ws.recv(timeout=max(deadline - time.monotonic(), 1.0))
+                raw = ws.recv(timeout=max(reply_deadline - time.monotonic(), 1.0))
             except TimeoutError:
                 continue
             if not isinstance(raw, str):

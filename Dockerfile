@@ -66,7 +66,6 @@ WORKDIR /app
 # Copy the virtual environment, source, and config from builder
 COPY --chown=mcpuser:mcpuser --from=builder /app/.venv /app/.venv
 COPY --chown=mcpuser:mcpuser --from=builder /app/src /app/src
-COPY --chown=mcpuser:mcpuser fastmcp.json fastmcp-http.json ./
 
 USER mcpuser
 
@@ -91,6 +90,6 @@ ENV HOMEASSISTANT_URL="" \
     HOMEASSISTANT_TOKEN="" \
     BACKUP_HINT="normal"
 
-# Default: Run in stdio mode using fastmcp.json
+# Default: Run in stdio mode
 # For HTTP mode: docker run ... IMAGE ha-mcp-web
-CMD ["fastmcp", "run", "fastmcp.json"]
+CMD ["ha-mcp"]
